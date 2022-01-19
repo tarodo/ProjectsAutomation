@@ -29,7 +29,9 @@ class CommonParticipant(models.Model):
     )
 
     def __str__(self):
-        return f"{self.name} {self.surname}"
+        tg_part = f"@{self.tg_username}" if self.tg_username else self.tg_id
+        surname_part = f" {self.surname} " if self.surname else " "
+        return f"{self.name}{surname_part}({tg_part})"
 
     class Meta:
         abstract = True
@@ -114,7 +116,11 @@ class TimeSlot(models.Model):
     )
 
     def __str__(self):
-        return f"{self.time_slot} / {self.product_manager} - {self.student}"
+        return (
+            f"{self.time_slot.strftime('%H:%M')}"
+            f" / {self.product_manager} - {self.student}"
+            f" / {self.project_team}"
+        )
 
     class Meta:
         verbose_name = "Слот времени"
@@ -203,7 +209,11 @@ class TeamProject(models.Model):
     )
 
     def __str__(self):
-        return f"{self.id} / {self.date_start.date()} - {self.project.name}"
+        return (
+            f"{self.project.name} / "
+            f"{self.date_start.strftime('%d.%m.%Y')}"
+            f" - {self.date_end.strftime('%d.%m.%Y')}"
+        )
 
     class Meta:
         verbose_name = "Проект команды"
