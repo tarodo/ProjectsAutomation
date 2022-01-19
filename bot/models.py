@@ -1,4 +1,3 @@
-from tabnanny import verbose
 from django.db import models
 
 
@@ -25,8 +24,8 @@ class CommonParticipant(models.Model):
     surname = models.CharField(
         verbose_name="Фамилия",
         max_length=32,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
     )
 
     def __str__(self):
@@ -100,7 +99,7 @@ class TimeSlot(models.Model):
     )
     student = models.ForeignKey(
         verbose_name="Ученик",
-        to=Student,
+        to="Student",
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
@@ -185,7 +184,11 @@ class TeamProject(models.Model):
     )
 
     project = models.ForeignKey(
-        to=Project, blank=True, null=True, on_delete=models.SET_NULL
+        verbose_name="Описание проекта",
+        to="Project",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
     )
 
     discord_server_link = models.URLField(
@@ -200,7 +203,7 @@ class TeamProject(models.Model):
     )
 
     def __str__(self):
-        return f"{self.id} / {self.date_start} - {self.project.name}"
+        return f"{self.id} / {self.date_start.date()} - {self.project.name}"
 
     class Meta:
         verbose_name = "Проект команды"
