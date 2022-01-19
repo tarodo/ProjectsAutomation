@@ -3,11 +3,11 @@ import os
 from enum import Enum, auto
 
 from django.core.management.base import BaseCommand
-from telegram import Bot, Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
-from telegram.ext import (CommandHandler,
-                          ConversationHandler, Filters, MessageHandler,
-                          Updater, CallbackContext)
+from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
+                          Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
+from bot.models import ProductManager
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -50,8 +50,16 @@ def send_first_question(update: Update, context: CallbackContext) -> States:
 
 def start(update: Update, context: CallbackContext) -> States:
     user = update.message.from_user
-    update.message.reply_text(f"Привет, {user.full_name if user.full_name else user.username}")
-    logger.info(f"User {user.first_name} :: {user.id} started the conversation.")
+    update.message.reply_text(
+        f"Привет, {user.full_name if user.full_name else user.username}")
+    logger.info(
+        f"User {user.first_name} :: {user.id} started the conversation.")
+
+    new_pm, _ = ProductManager.objects.get_or_create(
+        tg_id=user.id,
+        tg_username=user.username,
+        name=user.full_name,
+        surname=user.first_name)
 
     return send_first_question(update, context)
 
@@ -67,7 +75,8 @@ def first_step(update: Update, context: CallbackContext) -> States:
 def cancel(update: Update, _) -> int:
     """Cancel and end the conversation."""
     user = update.message.from_user
-    logger.info(f"User {user.first_name} :: {user.id} canceled the conversation.")
+    logger.info(
+        f"User {user.first_name} :: {user.id} canceled the conversation.")
     update.message.reply_text(
         "Всего доброго!", reply_markup=ReplyKeyboardRemove()
     )
@@ -90,7 +99,8 @@ class Command(BaseCommand):
             ],
             states={
                 States.START: [
-                    MessageHandler(Filters.text & ~Filters.command, first_step),
+                    MessageHandler(Filters.text & ~
+                                   Filters.command, first_step),
                 ],
             },
             fallbacks=[
