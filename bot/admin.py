@@ -17,9 +17,15 @@ class TimeSlotAdmin(admin.ModelAdmin):
     pass
 
 
+class StudentInline(admin.TabularInline):
+    model = ProductManager.students.through
+
+
 @admin.register(TeamProject)
 class TeamProjectAdmin(admin.ModelAdmin):
-    pass
+    inlines = [
+        StudentInline,
+    ]
 
 
 @admin.register(Project)

@@ -6,32 +6,24 @@ class CommonParticipant(models.Model):
 
     tg_id = models.PositiveIntegerField(
         verbose_name="Telegram id",
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
     )
     tg_username = models.CharField(
         verbose_name="Ник в Telegram",
         max_length=32,
-        blank=True,
-        null=True,
+        blank=False,
+        null=False,
     )
     name = models.CharField(
-        verbose_name="Имя",
+        verbose_name="Имя и фамилия",
         max_length=32,
         blank=False,
         null=False,
     )
-    surname = models.CharField(
-        verbose_name="Фамилия",
-        max_length=32,
-        blank=True,
-        null=True,
-    )
 
     def __str__(self):
-        tg_part = f"@{self.tg_username}" if self.tg_username else self.tg_id
-        surname_part = f" {self.surname} " if self.surname else " "
-        return f"{self.name}{surname_part}({tg_part})"
+        return f"{self.name} ({self.tg_username})"
 
     class Meta:
         abstract = True
@@ -73,9 +65,21 @@ class Student(CommonParticipant):
         choices=STUDENT_LEVEL_CHOICES,
         default=BEGINNER,
     )
+    discord_username = models.CharField(
+        verbose_name="discord username",
+        max_length=32,
+        blank=True,
+        null=True,
+    )
+    is_far_east = models.BooleanField(
+        verbose_name="Из ДВ?",
+        blank=True,
+        null=True,
+    )
 
     def __str__(self):
-        return super().__str__()
+        levels = dict(self.STUDENT_LEVEL_CHOICES)
+        return f"{super().__str__()} / {levels[self.level]}"
 
     class Meta:
         verbose_name = "Ученик"
