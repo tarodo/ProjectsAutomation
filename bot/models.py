@@ -1,4 +1,3 @@
-from tabnanny import verbose
 from django.db import models
 
 
@@ -7,30 +6,24 @@ class CommonParticipant(models.Model):
 
     tg_id = models.PositiveIntegerField(
         verbose_name="Telegram id",
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
     )
     tg_username = models.CharField(
         verbose_name="Ник в Telegram",
         max_length=32,
-        blank=True,
-        null=True,
-    )
-    name = models.CharField(
-        verbose_name="Имя",
-        max_length=32,
         blank=False,
         null=False,
     )
-    surname = models.CharField(
-        verbose_name="Фамилия",
+    name = models.CharField(
+        verbose_name="Имя и фамилия",
         max_length=32,
         blank=False,
         null=False,
     )
 
     def __str__(self):
-        return f"{self.name} {self.surname}"
+        return f"{self.name} ({self.tg_username})"
 
     class Meta:
         abstract = True
@@ -72,9 +65,21 @@ class Student(CommonParticipant):
         choices=STUDENT_LEVEL_CHOICES,
         default=BEGINNER,
     )
+    discord_username = models.CharField(
+        verbose_name="discord username",
+        max_length=32,
+        blank=True,
+        null=True,
+    )
+    is_far_east = models.BooleanField(
+        verbose_name="Из ДВ?",
+        blank=True,
+        null=True,
+    )
 
     def __str__(self):
-        return super().__str__()
+        levels = dict(self.STUDENT_LEVEL_CHOICES)
+        return f"{super().__str__()} / {levels[self.level]}"
 
     class Meta:
         verbose_name = "Ученик"
@@ -100,7 +105,7 @@ class TimeSlot(models.Model):
     )
     student = models.ForeignKey(
         verbose_name="Ученик",
-        to=Student,
+        to="Student",
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
@@ -115,7 +120,11 @@ class TimeSlot(models.Model):
     )
 
     def __str__(self):
-        return f"{self.time_slot} / {self.product_manager} - {self.student}"
+        return (
+            f"{self.time_slot.strftime('%H:%M')}"
+            f" / {self.product_manager} - {self.student}"
+            f" / {self.project_team}"
+        )
 
     class Meta:
         verbose_name = "Слот времени"
@@ -185,7 +194,11 @@ class TeamProject(models.Model):
     )
 
     project = models.ForeignKey(
-        to=Project, blank=True, null=True, on_delete=models.SET_NULL
+        verbose_name="Описание проекта",
+        to="Project",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
     )
 
     discord_server_link = models.URLField(
@@ -200,7 +213,11 @@ class TeamProject(models.Model):
     )
 
     def __str__(self):
-        return f"{self.id} / {self.date_start} - {self.project.name}"
+        return (
+            f"{self.project.name} / "
+            f"{self.date_start.strftime('%d.%m.%Y')}"
+            f" - {self.date_end.strftime('%d.%m.%Y')}"
+        )
 
     class Meta:
         verbose_name = "Проект команды"
