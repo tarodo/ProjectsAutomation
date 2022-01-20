@@ -7,7 +7,8 @@ from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
-from bot.models import ProductManager
+
+from bot.models import ProductManager, Student
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -26,12 +27,40 @@ logger = logging.getLogger(__name__)
 
 class States(Enum):
     START = auto()
+    START_PM = auto()
+    START_STUDENT = auto()
 
 
 def keyboard_row_divider(full_list, row_width=2):
     """Divide list into rows for keyboard"""
     for i in range(0, len(full_list), row_width):
         yield full_list[i: i + row_width]
+
+
+def start(update: Update, context: CallbackContext) -> States:
+    user = update.message.from_user
+    update.message.reply_text(
+        f"Привет, {user.full_name if user.full_name else user.username}")
+    logger.info(
+        f"User {user.first_name} :: {user.id} started the conversation.")
+
+    find_pm = ProductManager.objects.filter(tg_username=user.username)
+    student_pm = Student.objects.filter(tg_username=user.username)
+
+    if find_pm or student_pm:
+        # Это ПМ или студент
+        # if find_pm:
+        #     find_pm.tg_id = user.id
+        #     find_pm.save()
+        return send_first_question(update, context)
+    else:
+        update.effective_user.send_message(
+            text="Простите, но Вас нет в наших списках"
+                 ", обратитесь к менторам Devman",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+        return ConversationHandler.END
 
 
 def send_first_question(update: Update, context: CallbackContext) -> States:
@@ -46,22 +75,6 @@ def send_first_question(update: Update, context: CallbackContext) -> States:
         ),
     )
     return States.START
-
-
-def start(update: Update, context: CallbackContext) -> States:
-    user = update.message.from_user
-    update.message.reply_text(
-        f"Привет, {user.full_name if user.full_name else user.username}")
-    logger.info(
-        f"User {user.first_name} :: {user.id} started the conversation.")
-
-    new_pm, _ = ProductManager.objects.get_or_create(
-        tg_id=user.id,
-        tg_username=user.username,
-        name=user.full_name,
-        surname=user.first_name)
-
-    return send_first_question(update, context)
 
 
 def first_step(update: Update, context: CallbackContext) -> States:
