@@ -37,7 +37,7 @@ def keyboard_row_divider(full_list, row_width=2):
         yield full_list[i: i + row_width]
 
 
-def start(update: Update, context: CallbackContext) -> States:
+def start(update: Update, context: CallbackContext):
     user = update.message.from_user
     update.message.reply_text(
         f"Привет, {user.full_name if user.full_name else user.username}")
@@ -48,19 +48,40 @@ def start(update: Update, context: CallbackContext) -> States:
     student_pm = Student.objects.filter(tg_username=user.username)
 
     if find_pm or student_pm:
-        # Это ПМ или студент
-        # if find_pm:
-        #     find_pm.tg_id = user.id
-        #     find_pm.save()
-        return send_first_question(update, context)
+        if find_pm:
+            find_pm[0].tg_id = user.id
+            find_pm[0].save()
+
+            return send_first_step_pm(update, context)
+        else:
+            student_pm[0].tg_id = user.id
+            student_pm[0].save()
+
+            return send_first_step_student(update, context)
     else:
         update.effective_user.send_message(
             text="Простите, но Вас нет в наших списках"
-                 ", обратитесь к менторам Devman",
+                 ", обратитесь к менторам Devman.",
             reply_markup=ReplyKeyboardRemove()
         )
 
         return ConversationHandler.END
+
+
+def send_first_step_pm(update: Update, context: CallbackContext) -> States:
+    update.effective_user.send_message(
+        text="Добро пожаловать PM.",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
+
+
+def send_first_step_student(update: Update, context: CallbackContext) -> States:
+    update.effective_user.send_message(
+        text="Добро пожаловать студент !",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return ConversationHandler.END
 
 
 def send_first_question(update: Update, context: CallbackContext) -> States:
@@ -77,7 +98,7 @@ def send_first_question(update: Update, context: CallbackContext) -> States:
     return States.START
 
 
-def first_step(update: Update, context: CallbackContext) -> States:
+def first_step(update: Update, context: CallbackContext) -> int:
     update.effective_user.send_message(
         text="На этом мои полномочия все( ", reply_markup=ReplyKeyboardRemove()
     )
@@ -112,6 +133,14 @@ class Command(BaseCommand):
             ],
             states={
                 States.START: [
+                    MessageHandler(Filters.text & ~
+                                   Filters.command, first_step),
+                ],
+                States.START_PM: [
+                    MessageHandler(Filters.text & ~
+                                   Filters.command, first_step),
+                ],
+                States.START_STUDENT: [
                     MessageHandler(Filters.text & ~
                                    Filters.command, first_step),
                 ],
