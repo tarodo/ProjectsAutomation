@@ -1,3 +1,4 @@
+from email.policy import default
 from django.db import models
 
 
@@ -94,6 +95,22 @@ class TimeSlot(models.Model):
     time_slot = models.TimeField(
         verbose_name="Время начала созвона", blank=False, null=False
     )
+
+    BUSY = "BUSY"
+    FREE = "FREE"
+    TIMESLOT_STATUS_CHOICES = (
+        (BUSY, "Временной слот занят"),
+        (FREE, "Временной слот свободен"),
+    )
+    status = models.CharField(
+        verbose_name="Статус",
+        choices=TIMESLOT_STATUS_CHOICES,
+        default=FREE,
+        max_length=4,
+        blank=False,
+        null=False,
+    )
+
     # TODO: м.б. все-таки продакт обязателен,
     # если на его расписании все завязано?
     product_manager = models.ForeignKey(
