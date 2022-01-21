@@ -3,14 +3,14 @@ import os
 from enum import Enum, auto
 
 from django.core.management.base import BaseCommand
-from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
 
 from bot.models import ProductManager, Student
 
-# from bot.management.commands._pm_conversation import get_pm_conversation, send_first_step_pm
+import bot.management.commands._student_conversation as sc
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 class States(Enum):
-    START = auto()
     START_PM = auto()
     START_STUDENT = auto()
 
@@ -47,8 +46,7 @@ def start(update: Update, context: CallbackContext):
         f"User {user.first_name} :: {user.id} started the conversation.")
 
     find_pm = ProductManager.objects.filter(tg_username=user.username)
-    student_pm = Student.objects.filter(tg_username=user.username)
-
+    student_pm = Student.objects.filter(tg_username__contains=user.username)
     if find_pm or student_pm:
         if find_pm:
             find_pm[0].tg_id = user.id
@@ -58,7 +56,6 @@ def start(update: Update, context: CallbackContext):
         else:
             student_pm[0].tg_id = user.id
             student_pm[0].save()
-
             return send_first_step_student(update, context)
     else:
         update.effective_user.send_message(
@@ -79,33 +76,15 @@ def send_first_step_pm(update: Update, context: CallbackContext) -> States:
 
 
 def send_first_step_student(update: Update, context: CallbackContext) -> States:
-    update.effective_user.send_message(
-        text="Добро пожаловать студент !",
-        reply_markup=ReplyKeyboardRemove()
-    )
-    return ConversationHandler.END
+    buttons = [
+        [
+            InlineKeyboardButton(text='Выбрать время', callback_data=sc.Consts.SELECT_TIME.value),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    update.message.reply_text(text="Добро пожаловать студент! Пора приступать к проекту!", reply_markup=keyboard)
 
-
-def send_first_question(update: Update, context: CallbackContext) -> States:
-    buttons = ["Список проектов", "Список ПМ'ов", "Список учеников"]
-    reply_keyboard = list(keyboard_row_divider(buttons))
-    update.message.reply_text(
-        "Вот ду ю вонт?:",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            resize_keyboard=True,
-        ),
-    )
-    return States.START
-
-
-def first_step(update: Update, context: CallbackContext) -> int:
-    update.effective_user.send_message(
-        text="На этом мои полномочия все( ", reply_markup=ReplyKeyboardRemove()
-    )
-
-    return ConversationHandler.END
+    return States.START_STUDENT
 
 
 def cancel(update: Update, _) -> int:
@@ -134,16 +113,11 @@ class Command(BaseCommand):
                 CommandHandler("start", start),
             ],
             states={
-                States.START: [
-                    MessageHandler(Filters.text & ~
-                                   Filters.command, first_step),
-                ],
                 States.START_PM: [
                     MessageHandler(Filters.text & ~
                                    Filters.command, send_first_step_student)],
                 States.START_STUDENT: [
-                    MessageHandler(Filters.text & ~
-                                   Filters.command, first_step),
+                    sc.student_conv
                 ],
             },
             fallbacks=[
@@ -152,7 +126,6 @@ class Command(BaseCommand):
         )
 
         dispatcher.add_handler(conv_handler)
-        # dispatcher.add_handler(get_pm_conversation())
 
         updater.start_polling()
         updater.idle()
