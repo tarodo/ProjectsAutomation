@@ -10,6 +10,8 @@ from telegram.utils.request import Request
 
 from bot.models import ProductManager, Student
 
+# from bot.management.commands._pm_conversation import get_pm_conversation, send_first_step_pm
+
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 request = Request(connect_timeout=0.5, read_timeout=1.0)
@@ -138,8 +140,7 @@ class Command(BaseCommand):
                 ],
                 States.START_PM: [
                     MessageHandler(Filters.text & ~
-                                   Filters.command, first_step),
-                ],
+                                   Filters.command, send_first_step_student)],
                 States.START_STUDENT: [
                     MessageHandler(Filters.text & ~
                                    Filters.command, first_step),
@@ -151,6 +152,7 @@ class Command(BaseCommand):
         )
 
         dispatcher.add_handler(conv_handler)
+        # dispatcher.add_handler(get_pm_conversation())
 
         updater.start_polling()
         updater.idle()
