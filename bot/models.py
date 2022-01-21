@@ -98,9 +98,11 @@ class TimeSlot(models.Model):
 
     BUSY = "BUSY"
     FREE = "FREE"
+    NON_ACTUAL = "NOAC"
     TIMESLOT_STATUS_CHOICES = (
-        (BUSY, "Временной слот занят"),
-        (FREE, "Временной слот свободен"),
+        (BUSY, "Есть запись на созвон"),
+        (FREE, "Слот свободен"),
+        (NON_ACTUAL, "Не актуальное время, есть записись на другое время"),
     )
     status = models.CharField(
         verbose_name="Статус",
