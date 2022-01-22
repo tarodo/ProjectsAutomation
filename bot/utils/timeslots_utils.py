@@ -1,4 +1,8 @@
+from datetime import datetime, timedelta
+from sqlite3 import Timestamp
 from bot.models import ProductManager, Student, TimeSlot
+
+CALL_TIME_MINUTES = 30
 
 
 def make_teams():
@@ -46,3 +50,46 @@ def make_teams():
                 pm_timeslot.status = TimeSlot.NON_ACTUAL
                 pm_timeslot.save()
                 break
+
+
+def _timestamps_by_range(time_start, time_end):
+    time_delta = timedelta(minutes=CALL_TIME_MINUTES)
+    timestamps = []
+
+    while time_start <= time_end:
+        timestamps.append(time_start.time())
+        time_start += time_delta
+
+    return timestamps
+
+
+def _create_timeslot(time_slot=None, student=None, pm=None, team_project=None):
+    """Создает записи таймслота для заданого времени."""
+
+    return TimeSlot.objects.get_or_create(
+        time_slot=time_slot,
+        student=student,
+        product_manager=pm,
+        team_project=team_project,
+    )
+
+
+def make_timeslots(time_start, time_end, tg_id, project=None):
+    """Создание таймслотов для ученика или менеджера."""
+
+    try:
+        pm = ProductManager.objects.get(tg_id=tg_id)
+    except ProductManager.DoesNotExist:
+        pm = None
+
+    try:
+        student = Student.objects.get(tg_id=tg_id)
+    except Student.DoesNotExist:
+        student = None
+
+    time_stamps = _timestamps_by_range(time_start, time_end)
+
+    for time_stamp in time_stamps:
+        _create_timeslot(
+            time_slot=time_stamp, pm=pm, student=student, team_project=project
+        )
