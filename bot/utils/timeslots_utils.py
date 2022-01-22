@@ -52,6 +52,20 @@ def make_teams():
                 break
 
 
+def get_unallocated_students():
+    """Выборка нераспределенных по ПМам и группам учеников,
+    т.е. тех, у которых все таймслоты имеют статус 'FREE'."""
+
+    students = Student.objects.all()
+    unallocated_students = []
+    for student in students:
+        timeslot_status_dict = student.timeslots.all().values("status")
+        if all(item["status"] == TimeSlot.FREE for item in timeslot_status_dict):
+            unallocated_students.append(student)
+
+    return unallocated_students
+
+
 def _timestamps_by_range(time_start, time_end):
     time_delta = timedelta(minutes=CALL_TIME_MINUTES)
     timestamps = []
