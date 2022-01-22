@@ -1,6 +1,9 @@
+from django.urls import re_path
 from django.contrib import admin
+from django.http import HttpResponseRedirect
 
 from .models import ProductManager, Project, Student, TeamProject, TimeSlot
+from .utils.timeslots_utils import make_teams
 
 
 class TimeSlotInline(admin.TabularInline):
@@ -55,6 +58,23 @@ class TimeSlotAdmin(admin.ModelAdmin):
         "student",
         "team_project",
     )
+    change_list_template = "admin/timeslot_change_list.html"
+
+    def get_urls(self):
+        urls = super(TimeSlotAdmin, self).get_urls()
+        custom_urls = [
+            re_path(
+                "^distribute/$",
+                self.process_distribute_students,
+                name="process_distribute_students",
+            ),
+        ]
+        return custom_urls + urls
+
+    def process_distribute_students(self, request):
+        make_teams()
+        self.message_user(request, f"Распределение выполнено")
+        return HttpResponseRedirect("../")
 
 
 @admin.register(TeamProject)
