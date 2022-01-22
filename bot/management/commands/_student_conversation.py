@@ -10,7 +10,7 @@ from telegram.ext import (
     CallbackContext,
 )
 
-from bot.models import TimeSlot
+from bot.models import TimeSlot, Student
 from bot.utils.timeslots_utils import make_timeslots, CALL_TIME_MINUTES
 
 logger = logging.getLogger("student")
@@ -56,8 +56,25 @@ def keyboard_generator(context, keys=None):
 
 def select_time(update: Update, context: CallbackContext):
     empty_slots = TimeSlot.objects.filter(product_manager__isnull=False, student__isnull=True).values("time_slot").distinct()
+    user_id = update.callback_query.from_user.id
+    student_time = []
+    try:
+        student = Student.objects.get(tg_id=user_id)
+        logger.info(student)
+        student_slots = student.timeslots.values("time_slot").distinct()
+        student_time = [slot["time_slot"].strftime('%H:%M') for slot in student_slots]
+    except Student.DoesNotExist:
+        pass
+
     empty_time = [slot["time_slot"].strftime('%H:%M') for slot in empty_slots]
-    keyboard = keyboard_generator(context, empty_time)
+    prepare_time = []
+    for time in empty_time:
+        new_time = time
+        if time in student_time:
+            new_time = f"{time}{LIKE_ICON}"
+        prepare_time.append(new_time)
+
+    keyboard = keyboard_generator(context, prepare_time)
 
     update.callback_query.answer()
     update.callback_query.edit_message_text(text="Выберите удобное для Вас время", reply_markup=keyboard)
@@ -96,7 +113,13 @@ def collect_time(context: CallbackContext):
     return result_keys
 
 
+def clear_time(user_id):
+    student = Student.objects.get(tg_id=user_id)
+    student.timeslots.all().delete()
+
+
 def save_time(user_id, time_keys):
+    clear_time(user_id)
     time_delta = timedelta(minutes=CALL_TIME_MINUTES-1)
     for key in time_keys:
         start_time = datetime.datetime.strptime(key, '%H:%M')
