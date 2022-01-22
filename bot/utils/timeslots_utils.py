@@ -1,4 +1,5 @@
 from datetime import timedelta
+from itertools import groupby
 
 from bot.models import ProductManager, Student, TimeSlot
 
@@ -53,7 +54,7 @@ def make_teams():
                         slot.save()
 
                 pm_teams_count += 1
-                pm_timeslot.status = TimeSlot.BUSY
+                pm_timeslot.status = TimeSlot.NON_ACTUAL
                 pm_timeslot.save()
                 break
 
@@ -113,3 +114,32 @@ def make_timeslots(time_start, time_end, tg_id, project=None):
         _create_timeslot(
             time_slot=time_stamp, pm=pm, student=student, team_project=project
         )
+
+
+def get_teams():
+    """Возвращает список словарей команд
+    сгруппированных по менеджеру и времени созвона."""
+
+    busy_timeslots = TimeSlot.objects.filter(status=TimeSlot.BUSY).values(
+        "id", "time_slot", "product_manager__id", "student__id"
+    )
+    sort_func = lambda timeslot: (
+        timeslot["product_manager__id"],
+        timeslot["time_slot"],
+    )
+
+    busy_timeslots_sorted = sorted(busy_timeslots, key=sort_func)
+    teams = groupby(busy_timeslots_sorted, key=sort_func)
+    teams_list = []
+
+    for keys, timeslot_values in teams:
+        pm_id, time = keys
+        teams_list.append(
+            {
+                "pm_id": pm_id,
+                "time": time,
+                "time_slot_vals": list(timeslot_values),
+            }
+        )
+
+    return teams_list

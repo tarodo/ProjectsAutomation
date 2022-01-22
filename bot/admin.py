@@ -1,6 +1,6 @@
-from django.urls import re_path
 from django.contrib import admin
 from django.http import HttpResponseRedirect
+from django.urls import re_path
 
 from .models import ProductManager, Project, Student, TeamProject, TimeSlot
 from .utils.timeslots_utils import make_teams
