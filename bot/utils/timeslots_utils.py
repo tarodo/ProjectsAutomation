@@ -1,7 +1,8 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from itertools import groupby
+from random import choice
 
-from bot.models import ProductManager, Student, TimeSlot
+from bot.models import ProductManager, Project, Student, TeamProject, TimeSlot
 
 MAX_TEAM_MEMBERS = 3
 CALL_TIME_MINUTES = 30
@@ -10,6 +11,8 @@ STUDENTS_LEVELS = (
     Student.BEGINNER_PLUS,
     Student.JUNIOR,
 )
+PROJECTS_START_DATE = "2022-01-24"
+PROJECTS_END_DATE = "2022-02-05"
 
 
 def make_teams():
@@ -45,8 +48,17 @@ def make_teams():
                     continue
 
                 team_timeslots = students_timeslots[:3]
+
+                typical_project = choice(Project.objects.all())
+                team_project = TeamProject.objects.create(
+                    date_start=datetime.fromisoformat(PROJECTS_START_DATE),
+                    date_end=datetime.fromisoformat(PROJECTS_END_DATE),
+                    project=typical_project,
+                )
+
                 for slot in team_timeslots:
                     slot.product_manager = pm
+                    slot.team_project = team_project
                     slot.status = TimeSlot.BUSY
                     slot.save()
                     for slot in slot.student.timeslots.filter(status=TimeSlot.FREE):
