@@ -31,3 +31,7 @@ http://127.0.0.1:8000/admin/
 python manage.py migrate
 python manage.py runserver
 ```
+### Upload students from json
+```
+python manager.py load_json -j {json_path}
+```

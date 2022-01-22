@@ -3,11 +3,14 @@ import os
 from enum import Enum, auto
 
 from django.core.management.base import BaseCommand
-from telegram import Bot, Update, ReplyKeyboardRemove, ReplyKeyboardMarkup
-from telegram.ext import (CommandHandler,
-                          ConversationHandler, Filters, MessageHandler,
-                          Updater, CallbackContext)
+from telegram import Bot, ReplyKeyboardMarkup, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
+                          Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
+
+from bot.models import ProductManager, Student
+
+import bot.management.commands._student_conversation as sc
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -25,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 
 class States(Enum):
-    START = auto()
+    START_PM = auto()
+    START_STUDENT = auto()
 
 
 def keyboard_row_divider(full_list, row_width=2):
@@ -34,40 +38,60 @@ def keyboard_row_divider(full_list, row_width=2):
         yield full_list[i: i + row_width]
 
 
-def send_first_question(update: Update, context: CallbackContext) -> States:
-    buttons = ["Список проектов", "Список ПМ'ов", "Список учеников"]
-    reply_keyboard = list(keyboard_row_divider(buttons))
-    update.message.reply_text(
-        "Вот ду ю вонт?:",
-        reply_markup=ReplyKeyboardMarkup(
-            reply_keyboard,
-            one_time_keyboard=True,
-            resize_keyboard=True,
-        ),
-    )
-    return States.START
-
-
-def start(update: Update, context: CallbackContext) -> States:
+def start(update: Update, context: CallbackContext):
     user = update.message.from_user
-    update.message.reply_text(f"Привет, {user.full_name if user.full_name else user.username}")
-    logger.info(f"User {user.first_name} :: {user.id} started the conversation.")
+    update.message.reply_text(
+        f"Привет, {user.full_name if user.full_name else user.username}")
+    logger.info(
+        f"User {user.first_name} :: {user.id} started the conversation.")
 
-    return send_first_question(update, context)
+    find_pm = ProductManager.objects.filter(tg_username=user.username)
+    student_pm = Student.objects.filter(tg_username__contains=user.username)
+    if find_pm or student_pm:
+        if find_pm:
+            find_pm[0].tg_id = user.id
+            find_pm[0].save()
+
+            return send_first_step_pm(update, context)
+        else:
+            student_pm[0].tg_id = user.id
+            student_pm[0].save()
+            return send_first_step_student(update, context)
+    else:
+        update.effective_user.send_message(
+            text="Простите, но Вас нет в наших списках"
+                 ", обратитесь к менторам Devman.",
+            reply_markup=ReplyKeyboardRemove()
+        )
+
+        return ConversationHandler.END
 
 
-def first_step(update: Update, context: CallbackContext) -> States:
+def send_first_step_pm(update: Update, context: CallbackContext) -> States:
     update.effective_user.send_message(
-        text="На этом мои полномочия все( ", reply_markup=ReplyKeyboardRemove()
+        text="Добро пожаловать PM.",
+        reply_markup=ReplyKeyboardRemove()
     )
-
     return ConversationHandler.END
+
+
+def send_first_step_student(update: Update, context: CallbackContext) -> States:
+    buttons = [
+        [
+            InlineKeyboardButton(text='Выбрать время', callback_data=sc.Consts.SELECT_TIME.value),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    update.message.reply_text(text="Добро пожаловать студент! Пора приступать к проекту!", reply_markup=keyboard)
+
+    return States.START_STUDENT
 
 
 def cancel(update: Update, _) -> int:
     """Cancel and end the conversation."""
     user = update.message.from_user
-    logger.info(f"User {user.first_name} :: {user.id} canceled the conversation.")
+    logger.info(
+        f"User {user.first_name} :: {user.id} canceled the conversation.")
     update.message.reply_text(
         "Всего доброго!", reply_markup=ReplyKeyboardRemove()
     )
@@ -89,8 +113,11 @@ class Command(BaseCommand):
                 CommandHandler("start", start),
             ],
             states={
-                States.START: [
-                    MessageHandler(Filters.text & ~Filters.command, first_step),
+                States.START_PM: [
+                    MessageHandler(Filters.text & ~
+                                   Filters.command, send_first_step_student)],
+                States.START_STUDENT: [
+                    sc.student_conv
                 ],
             },
             fallbacks=[
