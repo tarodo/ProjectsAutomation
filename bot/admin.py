@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import ProductManager, Student, TimeSlot, TeamProject, Project
+
+from .models import ProductManager, Project, Student, TeamProject, TimeSlot
 
 
 class TimeSlotInline(admin.TabularInline):

@@ -1,36 +1,42 @@
-from datetime import datetime, timedelta
-from sqlite3 import Timestamp
+from datetime import timedelta
+
 from bot.models import ProductManager, Student, TimeSlot
 
+MAX_TEAM_MEMBERS = 3
 CALL_TIME_MINUTES = 30
+STUDENTS_LEVELS = (
+    Student.BEGINNER,
+    Student.BEGINNER_PLUS,
+    Student.JUNIOR,
+)
 
 
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
 
-    MAX_TEAM_MEMBERS = 3
-    MAX_MANAGER_TEAMS = (
-        Student.objects.count() // MAX_TEAM_MEMBERS // ProductManager.objects.count()
-    )
+    students_count = Student.objects.count()
+    pm_count = ProductManager.objects.count()
+    MAX_MANAGER_TEAMS = students_count // MAX_TEAM_MEMBERS // pm_count
 
     for pm in ProductManager.objects.all():
         pm_teams_count = 0
         pm_timeslots = TimeSlot.objects.filter(
             product_manager=pm, student__isnull=True, status=TimeSlot.FREE
         )
+
         for pm_timeslot in pm_timeslots:
             if pm_teams_count == MAX_MANAGER_TEAMS:
                 break
 
-            for level in (Student.BEGINNER, Student.BEGINNER_PLUS, Student.JUNIOR):
+            for level in STUDENTS_LEVELS:
                 if pm_teams_count == MAX_MANAGER_TEAMS:
                     break
 
                 students_timeslots = TimeSlot.objects.filter(
+                    time_slot=pm_timeslot.time_slot,
                     product_manager__isnull=True,
                     student__isnull=False,
                     student__level=level,
-                    time_slot=pm_timeslot.time_slot,
                     status=TimeSlot.FREE,
                 )  # TODO: add disctinct by student?
 
@@ -47,7 +53,7 @@ def make_teams():
                         slot.save()
 
                 pm_teams_count += 1
-                pm_timeslot.status = TimeSlot.NON_ACTUAL
+                pm_timeslot.status = TimeSlot.BUSY
                 pm_timeslot.save()
                 break
 
