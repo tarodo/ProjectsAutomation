@@ -1,3 +1,4 @@
+from email.policy import default
 from django.db import models
 
 
@@ -94,10 +95,28 @@ class TimeSlot(models.Model):
     time_slot = models.TimeField(
         verbose_name="Время начала созвона", blank=False, null=False
     )
+
+    BUSY = "BUSY"
+    FREE = "FREE"
+    NON_ACTUAL = "NOAC"
+    TIMESLOT_STATUS_CHOICES = (
+        (BUSY, "Есть запись на созвон"),
+        (FREE, "Слот свободен"),
+        (NON_ACTUAL, "Не актуальное время, есть записись на другое время"),
+    )
+    status = models.CharField(
+        verbose_name="Статус",
+        choices=TIMESLOT_STATUS_CHOICES,
+        default=FREE,
+        max_length=4,
+        blank=False,
+        null=False,
+    )
     # TODO: м.б. все-таки продакт обязателен,
     # если на его расписании все завязано?
     product_manager = models.ForeignKey(
         verbose_name="Продакт-менеджер",
+        related_name="timeslots",
         to=ProductManager,
         blank=True,
         null=True,
@@ -105,14 +124,16 @@ class TimeSlot(models.Model):
     )
     student = models.ForeignKey(
         verbose_name="Ученик",
+        related_name="timeslots",
         to="Student",
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
     )
 
-    project_team = models.ForeignKey(
+    team_project = models.ForeignKey(
         verbose_name="Проект команды",
+        related_name="timeslots",
         to="TeamProject",
         blank=True,
         null=True,
@@ -123,7 +144,7 @@ class TimeSlot(models.Model):
         return (
             f"{self.time_slot.strftime('%H:%M')}"
             f" / {self.product_manager} - {self.student}"
-            f" / {self.project_team}"
+            f" / {self.team_project}"
         )
 
     class Meta:
@@ -133,19 +154,19 @@ class TimeSlot(models.Model):
         # TODO: добавить ограничения
         constraints = [
             models.UniqueConstraint(
-                fields=["time_slot", "product_manager", "student", "project_team"],
+                fields=["time_slot", "product_manager", "student", "team_project"],
                 name="Менеджер, студент, проект и слот времени",
             ),
             models.UniqueConstraint(
-                fields=["product_manager", "student", "project_team"],
+                fields=["product_manager", "student", "team_project"],
                 name="Менеджер, студент и проект",
             ),
             models.UniqueConstraint(
-                fields=["time_slot", "student", "project_team"],
+                fields=["time_slot", "student", "team_project"],
                 name="Слот времени, студент и проект",
             ),
             models.UniqueConstraint(
-                fields=["student", "project_team"],
+                fields=["student", "team_project"],
                 name="Студент и проект команды",
             ),
         ]
@@ -195,6 +216,7 @@ class TeamProject(models.Model):
 
     project = models.ForeignKey(
         verbose_name="Описание проекта",
+        related_name="teamprojects",
         to="Project",
         blank=True,
         null=True,
