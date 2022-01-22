@@ -7,6 +7,7 @@ class CommonParticipant(models.Model):
 
     tg_id = models.PositiveIntegerField(
         verbose_name="Telegram id",
+        unique=True,
         blank=True,
         null=True,
     )
