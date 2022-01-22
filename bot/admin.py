@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import ProductManager, Student, TimeSlot, TeamProject, Project
+
+from .models import ProductManager, Project, Student, TeamProject, TimeSlot
 
 
 class TimeSlotInline(admin.TabularInline):
@@ -19,6 +20,13 @@ class ProductManageraAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "tg_username",
+        "level",
+        "is_far_east",
+    )
+    list_filter = list_display
     inlines = [
         TimeSlotInline,
     ]

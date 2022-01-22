@@ -1,32 +1,42 @@
+from datetime import timedelta
+
 from bot.models import ProductManager, Student, TimeSlot
+
+MAX_TEAM_MEMBERS = 3
+CALL_TIME_MINUTES = 30
+STUDENTS_LEVELS = (
+    Student.BEGINNER,
+    Student.BEGINNER_PLUS,
+    Student.JUNIOR,
+)
 
 
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
 
-    MAX_TEAM_MEMBERS = 3
-    MAX_MANAGER_TEAMS = (
-        Student.objects.count() // MAX_TEAM_MEMBERS // ProductManager.objects.count()
-    )
+    students_count = Student.objects.count()
+    pm_count = ProductManager.objects.count()
+    MAX_MANAGER_TEAMS = students_count // MAX_TEAM_MEMBERS // pm_count
 
     for pm in ProductManager.objects.all():
         pm_teams_count = 0
         pm_timeslots = TimeSlot.objects.filter(
             product_manager=pm, student__isnull=True, status=TimeSlot.FREE
         )
+
         for pm_timeslot in pm_timeslots:
             if pm_teams_count == MAX_MANAGER_TEAMS:
                 break
 
-            for level in (Student.BEGINNER, Student.BEGINNER_PLUS, Student.JUNIOR):
+            for level in STUDENTS_LEVELS:
                 if pm_teams_count == MAX_MANAGER_TEAMS:
                     break
 
                 students_timeslots = TimeSlot.objects.filter(
+                    time_slot=pm_timeslot.time_slot,
                     product_manager__isnull=True,
                     student__isnull=False,
                     student__level=level,
-                    time_slot=pm_timeslot.time_slot,
                     status=TimeSlot.FREE,
                 )  # TODO: add disctinct by student?
 
@@ -43,6 +53,63 @@ def make_teams():
                         slot.save()
 
                 pm_teams_count += 1
-                pm_timeslot.status = TimeSlot.NON_ACTUAL
+                pm_timeslot.status = TimeSlot.BUSY
                 pm_timeslot.save()
                 break
+
+
+def get_unallocated_students():
+    """Выборка нераспределенных по ПМам и группам учеников,
+    т.е. тех, у которых все таймслоты имеют статус 'FREE'."""
+
+    students = Student.objects.all()
+    unallocated_students = []
+    for student in students:
+        timeslot_status_dict = student.timeslots.all().values("status")
+        if all(item["status"] == TimeSlot.FREE for item in timeslot_status_dict):
+            unallocated_students.append(student)
+
+    return unallocated_students
+
+
+def _timestamps_by_range(time_start, time_end):
+    time_delta = timedelta(minutes=CALL_TIME_MINUTES)
+    timestamps = []
+
+    while time_start <= time_end:
+        timestamps.append(time_start.time())
+        time_start += time_delta
+
+    return timestamps
+
+
+def _create_timeslot(time_slot=None, student=None, pm=None, team_project=None):
+    """Создает записи таймслота для заданого времени."""
+
+    return TimeSlot.objects.get_or_create(
+        time_slot=time_slot,
+        student=student,
+        product_manager=pm,
+        team_project=team_project,
+    )
+
+
+def make_timeslots(time_start, time_end, tg_id, project=None):
+    """Создание таймслотов для ученика или менеджера."""
+
+    try:
+        pm = ProductManager.objects.get(tg_id=tg_id)
+    except ProductManager.DoesNotExist:
+        pm = None
+
+    try:
+        student = Student.objects.get(tg_id=tg_id)
+    except Student.DoesNotExist:
+        student = None
+
+    time_stamps = _timestamps_by_range(time_start, time_end)
+
+    for time_stamp in time_stamps:
+        _create_timeslot(
+            time_slot=time_stamp, pm=pm, student=student, team_project=project
+        )

@@ -1,4 +1,3 @@
-from email.policy import default
 from django.db import models
 
 
@@ -7,6 +6,7 @@ class CommonParticipant(models.Model):
 
     tg_id = models.PositiveIntegerField(
         verbose_name="Telegram id",
+        unique=True,
         blank=True,
         null=True,
     )
@@ -74,6 +74,7 @@ class Student(CommonParticipant):
     )
     is_far_east = models.BooleanField(
         verbose_name="Из ДВ?",
+        default=False,
         blank=True,
         null=True,
     )
