@@ -1,4 +1,6 @@
+import datetime
 import logging
+from datetime import timedelta
 from enum import Enum, auto
 
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update, ReplyKeyboardRemove
@@ -9,6 +11,7 @@ from telegram.ext import (
 )
 
 from bot.models import TimeSlot
+from bot.utils.timeslots_utils import make_timeslots, CALL_TIME_MINUTES
 
 logger = logging.getLogger("student")
 
@@ -52,7 +55,7 @@ def keyboard_generator(context, keys=None):
 
 
 def select_time(update: Update, context: CallbackContext):
-    empty_slots = TimeSlot.objects.values("time_slot").distinct()
+    empty_slots = TimeSlot.objects.filter(product_manager__isnull=False, student__isnull=True).values("time_slot").distinct()
     empty_time = [slot["time_slot"].strftime('%H:%M') for slot in empty_slots]
     keyboard = keyboard_generator(context, empty_time)
 
@@ -93,9 +96,20 @@ def collect_time(context: CallbackContext):
     return result_keys
 
 
+def save_time(user_id, time_keys):
+    time_delta = timedelta(minutes=CALL_TIME_MINUTES-1)
+    for key in time_keys:
+        start_time = datetime.datetime.strptime(key, '%H:%M')
+        fin_time = start_time + time_delta
+        make_timeslots(start_time, fin_time, user_id)
+
+
 def finer(update: Update, context: CallbackContext):
     update.callback_query.answer()
-    text = f"Вы выбрали время: {', '.join(collect_time(context))}"
+    user_id = update.callback_query.from_user.id
+    student_time = collect_time(context)
+    save_time(user_id, student_time)
+    text = f"Вы выбрали время: {', '.join(student_time)}"
     update.callback_query.edit_message_text(text=text)
 
     return ConversationHandler.END
