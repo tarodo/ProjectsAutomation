@@ -75,6 +75,7 @@ class Student(CommonParticipant):
     )
     is_far_east = models.BooleanField(
         verbose_name="Из ДВ?",
+        default=False,
         blank=True,
         null=True,
     )

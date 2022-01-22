@@ -19,6 +19,13 @@ class ProductManageraAdmin(admin.ModelAdmin):
 
 @admin.register(Student)
 class StudentAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "tg_username",
+        "level",
+        "is_far_east",
+    )
+    list_filter = list_display
     inlines = [
         TimeSlotInline,
     ]
