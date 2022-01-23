@@ -1,9 +1,9 @@
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import re_path
 
 from .models import ProductManager, Project, Student, TeamProject, TimeSlot
-from .utils.timeslots_utils import make_teams
+from .utils.timeslots_utils import cancel_distribution, make_teams
 
 
 class TimeSlotInline(admin.TabularInline):
@@ -68,12 +68,24 @@ class TimeSlotAdmin(admin.ModelAdmin):
                 self.process_distribute_students,
                 name="process_distribute_students",
             ),
+            re_path(
+                "^cancel_distribution/$",
+                self.process_cancel_distribution_students,
+                name="process_cancel_distribution_students",
+            ),
         ]
         return custom_urls + urls
 
     def process_distribute_students(self, request):
-        make_teams()
-        self.message_user(request, f"Распределение выполнено")
+        result_message = make_teams()
+        # TODO: использовать messages и level
+        self.message_user(request, result_message)
+        return HttpResponseRedirect("../")
+
+    def process_cancel_distribution_students(self, request):
+        result_message = cancel_distribution()
+        # TODO: использовать messages и level
+        self.message_user(request, result_message)
         return HttpResponseRedirect("../")
 
 
