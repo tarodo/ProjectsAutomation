@@ -3,12 +3,12 @@ import os
 from enum import Enum, auto
 
 from django.core.management.base import BaseCommand
-from telegram import Bot, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
 
-from bot.models import ProductManager, Student
+from bot.models import ProductManager, Student, TimeSlot
 
 import bot.management.commands._student_conversation as sc
 
@@ -36,6 +36,15 @@ def keyboard_row_divider(full_list, row_width=2):
     """Divide list into rows for keyboard"""
     for i in range(0, len(full_list), row_width):
         yield full_list[i: i + row_width]
+
+
+def escape_characters(text: str) -> str:
+    """Screen characters for Markdown V2"""
+    text = text.replace("\\", "")
+    characters = [".", "+", "(", ")", "-", "!", "=", "_"]
+    for character in characters:
+        text = text.replace(character, f"\{character}")
+    return text
 
 
 def start(update: Update, context: CallbackContext):
@@ -75,7 +84,38 @@ def send_first_step_pm(update: Update, context: CallbackContext) -> States:
     return ConversationHandler.END
 
 
+def student_project(user_id):
+    try:
+        student = Student.objects.get(tg_id=user_id)
+        timeslots = student.timeslots.all()
+        for slot in timeslots:
+            if slot.status == TimeSlot.BUSY:
+                return slot
+    except Student.DoesNotExist:
+        return None
+
+
 def send_first_step_student(update: Update, context: CallbackContext) -> States:
+    user = update.message.from_user
+    slot = student_project(user.id)
+    if slot:
+        project_name = slot.team_project.project.name
+        call_time = slot.time_slot.strftime("%H:%M")
+        pm = slot.product_manager
+        start_date = slot.team_project.date_start.strftime("%d.%m.%Y")
+        fin_date = slot.team_project.date_end.strftime("%d.%m.%Y")
+        text = (
+            f"На неделе с *{start_date} - {fin_date}* вы участвуете в проекте\n"
+            f"Ваш ПМ: *{pm}*\n"
+            f"Проект: *{project_name}*\n"
+            f"Созвон в: *{call_time}*"
+        )
+        update.message.reply_text(
+            text=escape_characters(text),
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return ConversationHandler.END
+
     buttons = [
         [
             InlineKeyboardButton(text='Выбрать время', callback_data=sc.Consts.SELECT_TIME.value),
@@ -97,9 +137,6 @@ def cancel(update: Update, _) -> int:
     )
 
     return ConversationHandler.END
-
-
-
 
 
 class Command(BaseCommand):
