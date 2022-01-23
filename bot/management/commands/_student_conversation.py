@@ -57,7 +57,9 @@ def keyboard_generator(context, keys=None):
 
 
 def select_time(update: Update, context: CallbackContext):
-    empty_slots = TimeSlot.objects.filter(product_manager__isnull=False, student__isnull=True).values("time_slot").distinct()
+    empty_slots = TimeSlot.objects.filter(product_manager__isnull=False,
+                                          student__isnull=True,
+                                          status=TimeSlot.FREE).values("time_slot").distinct()
     user_id = update.callback_query.from_user.id
     student_time = []
     try:
