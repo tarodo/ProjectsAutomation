@@ -18,9 +18,14 @@ PROJECTS_END_DATE = "2022-02-05"
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
 
+    if not Student.objects.exists():
+        return "Нет учеников, сначала необходимо зарегистрировать учеников."
+    if not ProductManager.objects.exists():
+        return "Нет менеджеров, сначала необходимо зарегистрировать менеджеров."
+
     students_count = Student.objects.count()
     pm_count = ProductManager.objects.count()
-    MAX_MANAGER_TEAMS = students_count // MAX_TEAM_MEMBERS // pm_count
+    max_teams_of_manager = students_count // MAX_TEAM_MEMBERS // pm_count
 
     for pm in ProductManager.objects.all():
         pm_teams_count = 0
@@ -29,11 +34,11 @@ def make_teams():
         )
 
         for pm_timeslot in pm_timeslots:
-            if pm_teams_count == MAX_MANAGER_TEAMS:
+            if pm_teams_count == max_teams_of_manager:
                 break
 
             for level in STUDENTS_LEVELS:
-                if pm_teams_count == MAX_MANAGER_TEAMS:
+                if pm_teams_count == max_teams_of_manager:
                     break
 
                 students_timeslots = TimeSlot.objects.filter(
@@ -69,6 +74,35 @@ def make_teams():
                 pm_timeslot.status = TimeSlot.NON_ACTUAL
                 pm_timeslot.save()
                 break
+
+    return "Распределение успешно"
+
+
+def cancel_distribution():
+    """Отмена распределения, только для непрошедщих проектов."""
+
+    busy_timeslots = TimeSlot.objects.filter(
+        status=TimeSlot.BUSY,
+        team_project__date_end__gte=datetime.now(),
+    )
+    if not busy_timeslots.exists():
+        return "Не найдено временных слотов!"
+
+    for slot in busy_timeslots:
+        slot.product_manager = None
+        slot.team_project = None
+        slot.status = TimeSlot.FREE
+        slot.save()
+
+    non_actual_timeslots = TimeSlot.objects.filter(
+        status=TimeSlot.NON_ACTUAL,
+    )
+
+    for slot in non_actual_timeslots:
+        slot.status = TimeSlot.FREE
+        slot.save()
+
+    return "Отмена распределения выполнена успешно"
 
 
 def get_unallocated_students():

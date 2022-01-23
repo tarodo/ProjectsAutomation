@@ -4,5 +4,9 @@
     {% csrf_token %}
     <input type="submit" value="Распределить учеников по группам" />
 </form>
+<form action="cancel_distribution/" method="POST">
+    {% csrf_token %}
+    <input type="submit" value="Отменить распредедение" />
+</form>
 {{ block.super }}
 {% endblock %}
