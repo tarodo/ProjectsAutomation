@@ -23,6 +23,7 @@ class States(Enum):
 class Consts(Enum):
     SELECT_TIME = "select_date"
     END_SELECTING = "end_selecting"
+    CHOSE_NOTHING = "cancel all"
 
 
 CALLBACK_NAME = "CHOOSE_TIME"
@@ -49,6 +50,7 @@ def keyboard_generator(context, keys=None):
     context.user_data["time_keys"] = keys
     buttons = [InlineKeyboardButton(text=time_el, callback_data=create_callback_time(time_el)) for time_el in keys]
     key_buttons = list(keyboard_row_divider(buttons, 3))
+    key_buttons.append([InlineKeyboardButton(text='Отменить все', callback_data=Consts.CHOSE_NOTHING.value)])
     key_buttons.append([InlineKeyboardButton(text='Закончить', callback_data=Consts.END_SELECTING.value)])
 
     return InlineKeyboardMarkup(key_buttons)
@@ -107,6 +109,28 @@ def time_handler(update, context):
     return States.SELECT_TIME
 
 
+def cancel_all(update, context):
+    query = update.callback_query
+    keys = context.user_data.get("time_keys")
+    new_keys = []
+    for key in keys:
+        if key.endswith(f"{LIKE_ICON}"):
+            new_keys.append(key.replace(f"{LIKE_ICON}", ""))
+        else:
+            new_keys.append(key)
+
+    update.callback_query.answer()
+    if keys != new_keys:
+        context.bot.edit_message_text(
+            text=query.message.text,
+            chat_id=query.message.chat_id,
+            message_id=query.message.message_id,
+            reply_markup=keyboard_generator(context, new_keys),
+        )
+
+    return States.SELECT_TIME
+
+
 def collect_time(context: CallbackContext):
     keys = context.user_data.get("time_keys")
     result_keys = [key.replace(f"{LIKE_ICON}", "") for key in keys if key.endswith(f"{LIKE_ICON}")]
@@ -132,7 +156,9 @@ def finer(update: Update, context: CallbackContext):
     user_id = update.callback_query.from_user.id
     student_time = collect_time(context)
     save_time(user_id, student_time)
-    text = f"Вы выбрали время: {', '.join(student_time)}"
+    text = "Вы отменили свое участие в проекте"
+    if student_time:
+        text = f"Вы выбрали время: {', '.join(student_time)}"
     update.callback_query.edit_message_text(text=text)
 
     return ConversationHandler.END
@@ -142,7 +168,8 @@ student_conv = ConversationHandler(
     entry_points=[CallbackQueryHandler(select_time, pattern='^' + str(Consts.SELECT_TIME.value) + '$')],
     states={
         States.SELECT_TIME: [
-            CallbackQueryHandler(time_handler, pattern=f'^{CALLBACK_NAME}')
+            CallbackQueryHandler(time_handler, pattern=f'^{CALLBACK_NAME}'),
+            CallbackQueryHandler(cancel_all, pattern=f'^{Consts.CHOSE_NOTHING.value}'),
         ],
     },
     fallbacks=[
