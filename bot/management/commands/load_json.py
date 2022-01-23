@@ -52,7 +52,7 @@ def save_student(student: dict):
         name=student.name,
         level=student.level,
         discord_username=student.discord_username,
-        is_far_east=student.is_far_east
+        is_far_east=student.is_far_east,
     )
     new_student.save()
 
@@ -61,10 +61,7 @@ def save_manager(pm: dict):
     """Save one student to DB"""
     manager = ManagerModel.parse_obj(pm)
 
-    new_manager = ProductManager(
-        name=manager.name,
-        tg_username=manager.tg_username
-    )
+    new_manager = ProductManager(name=manager.name, tg_username=manager.tg_username)
     new_manager.save()
 
 
@@ -72,7 +69,7 @@ def save_manager_timeslot(pm_slot: dict):
     """Save timeslot for manager in DB"""
     slot = ManagerTimeSlotModel.parse_obj(pm_slot)
     manager = ProductManager.objects.get(tg_username=slot.tg_username)
-    start_time = datetime.datetime.strptime(slot.timeslot, '%H:%M')
+    start_time = datetime.datetime.strptime(slot.timeslot, "%H:%M")
     return TimeSlot.objects.get_or_create(
         time_slot=start_time,
         student=None,
@@ -85,7 +82,7 @@ def save_student_timeslot(student_slot: dict):
     """Save timeslot for student in DB"""
     slot = StudentTimeSlotModel.parse_obj(student_slot)
     student = Student.objects.get(tg_username=slot.tg_username)
-    start_time = datetime.datetime.strptime(slot.timeslot, '%H:%M')
+    start_time = datetime.datetime.strptime(slot.timeslot, "%H:%M")
     return TimeSlot.objects.get_or_create(
         time_slot=start_time,
         student=student,
@@ -130,16 +127,11 @@ class Command(BaseCommand):
             load_json(options["json"], save_student_timeslot)
 
     def add_arguments(self, parser):
+        parser.add_argument("-j", "--json", action="store", help="Путь до JSON файла")
         parser.add_argument(
-            '-j',
-            '--json',
-            action='store',
-            help='Путь до JSON файла'
-        )
-        parser.add_argument(
-            '-t',
-            '--table',
+            "-t",
+            "--table",
             action="store",
             help="Таблица назначения",
-            default="student"
+            default="student",
         )
