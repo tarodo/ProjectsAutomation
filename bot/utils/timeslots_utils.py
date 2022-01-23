@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from itertools import groupby
 from random import choice
 
-from bot.management.commands.notificator import notify_everybody
+from bot.management.commands.notificator import notify_everybody, notify_free_students
 from bot.models import ProductManager, Project, Student, TeamProject, TimeSlot
 
 MAX_TEAM_MEMBERS = 3
@@ -74,9 +74,10 @@ def make_teams():
                 pm_teams_count += 1
                 pm_timeslot.status = TimeSlot.NON_ACTUAL
                 pm_timeslot.save()
-                notify_everybody()
                 break
 
+    notify_everybody()
+    notify_free_students(get_unallocated_students())
     return "Распределение успешно"
 
 

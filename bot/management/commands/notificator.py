@@ -1,7 +1,7 @@
 import logging
 import os
 
-from bot.models import TeamProject
+from bot.models import TeamProject, Student, TimeSlot
 from telegram.utils.request import Request
 from telegram import Bot, ParseMode
 
@@ -76,3 +76,21 @@ def notify_everybody():
                     text=escape_characters(text),
                     parse_mode=ParseMode.MARKDOWN_V2,
                 )
+
+
+def notify_free_students(free_students):
+    for student in free_students:
+        if student.tg_id:
+            user_id = student.tg_id
+            empty_slots = TimeSlot.objects.filter(product_manager__isnull=False, student__isnull=True, status=TimeSlot.FREE).values("time_slot").distinct()
+            empty_time = [slot["time_slot"].strftime('%H:%M') for slot in empty_slots]
+            text = f"*{student.name}*, к сожалению на выбранные вами слоты группы не нашлось\n" \
+                   f"Есть слоты на *{', '.join(empty_time)}*\n" \
+                   f"Если какой-то из них устраивает добавьте его в список возможны /start\n" \
+                   f"Спасибо"
+            bot.send_message(
+                chat_id=user_id,
+                text=escape_characters(text),
+                parse_mode=ParseMode.MARKDOWN_V2,
+            )
+            logger.info(student)
