@@ -1,12 +1,12 @@
 import datetime
 import json
+import logging
 
 from django.core.management.base import BaseCommand
-
-from bot.models import Student, ProductManager, TimeSlot
 from pydantic import BaseModel
 from pydantic.error_wrappers import ValidationError
-import logging
+
+from bot.models import ProductManager, Student, TimeSlot
 
 logging.basicConfig(
     level=logging.INFO,

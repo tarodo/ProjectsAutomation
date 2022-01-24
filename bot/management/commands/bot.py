@@ -6,11 +6,11 @@ from django.core.management.base import BaseCommand
 from telegram import (Bot, InlineKeyboardButton, InlineKeyboardMarkup,
                       ParseMode, ReplyKeyboardRemove, Update)
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
-                          Filters, MessageHandler, Updater)
+                          Updater)
 from telegram.utils.request import Request
 
-import bot.management.commands._student_conversation as sc
 import bot.management.commands._pm_conversation as pc
+import bot.management.commands._student_conversation as sc
 from bot.models import ProductManager, Student, TimeSlot
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -36,7 +36,7 @@ class States(Enum):
 def keyboard_row_divider(full_list, row_width=2):
     """Divide list into rows for keyboard"""
     for i in range(0, len(full_list), row_width):
-        yield full_list[i: i + row_width]
+        yield full_list[i : i + row_width]
 
 
 def escape_characters(text: str) -> str:
@@ -51,9 +51,9 @@ def escape_characters(text: str) -> str:
 def start(update: Update, context: CallbackContext):
     user = update.message.from_user
     update.message.reply_text(
-        f"Привет, {user.full_name if user.full_name else user.username}")
-    logger.info(
-        f"User {user.first_name} :: {user.id} started the conversation.")
+        f"Привет, {user.full_name if user.full_name else user.username}"
+    )
+    logger.info(f"User {user.first_name} :: {user.id} started the conversation.")
 
     find_pm = ProductManager.objects.filter(tg_username=user.username)
     student_pm = Student.objects.filter(tg_username__contains=user.username)
@@ -70,8 +70,8 @@ def start(update: Update, context: CallbackContext):
     else:
         update.effective_user.send_message(
             text="Простите, но Вас нет в наших списках"
-                 ", обратитесь к менторам Devman.",
-            reply_markup=ReplyKeyboardRemove()
+            ", обратитесь к менторам Devman.",
+            reply_markup=ReplyKeyboardRemove(),
         )
 
         return ConversationHandler.END
@@ -80,13 +80,15 @@ def start(update: Update, context: CallbackContext):
 def send_first_step_pm(update: Update, context: CallbackContext) -> States:
     buttons = [
         [
-            InlineKeyboardButton(text="Посмотреть периоды работы.",
-                                 callback_data="show_period_pm"),
+            InlineKeyboardButton(
+                text="Посмотреть периоды работы.", callback_data="show_period_pm"
+            ),
         ]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     update.message.reply_text(
-        text="Добро пожаловать о великий ПМ! )))", reply_markup=keyboard)
+        text="Добро пожаловать о великий ПМ! )))", reply_markup=keyboard
+    )
 
     return States.START_PM
 
@@ -125,13 +127,16 @@ def send_first_step_student(update: Update, context: CallbackContext) -> States:
 
     buttons = [
         [
-            InlineKeyboardButton(text='Выбрать время',
-                                 callback_data=sc.Consts.SELECT_TIME.value),
+            InlineKeyboardButton(
+                text="Выбрать время", callback_data=sc.Consts.SELECT_TIME.value
+            ),
         ]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     update.message.reply_text(
-        text="Добро пожаловать студент! Пора приступать к проекту!", reply_markup=keyboard)
+        text="Добро пожаловать студент! Пора приступать к проекту!",
+        reply_markup=keyboard,
+    )
 
     return States.START_STUDENT
 
@@ -139,11 +144,8 @@ def send_first_step_student(update: Update, context: CallbackContext) -> States:
 def cancel(update: Update, _) -> int:
     """Cancel and end the conversation."""
     user = update.message.from_user
-    logger.info(
-        f"User {user.first_name} :: {user.id} canceled the conversation.")
-    update.message.reply_text(
-        "Всего доброго!", reply_markup=ReplyKeyboardRemove()
-    )
+    logger.info(f"User {user.first_name} :: {user.id} canceled the conversation.")
+    update.message.reply_text("Всего доброго!", reply_markup=ReplyKeyboardRemove())
 
     return ConversationHandler.END
 
@@ -162,12 +164,8 @@ class Command(BaseCommand):
                 CommandHandler("start", start),
             ],
             states={
-                States.START_PM: [
-                    pc.pm_conv
-                ],
-                States.START_STUDENT: [
-                    sc.student_conv
-                ],
+                States.START_PM: [pc.pm_conv],
+                States.START_STUDENT: [sc.student_conv],
             },
             fallbacks=[
                 CommandHandler("cancel", cancel),

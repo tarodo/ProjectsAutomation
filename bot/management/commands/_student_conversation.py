@@ -3,19 +3,12 @@ import logging
 from datetime import timedelta
 from enum import Enum, auto
 
-from telegram import (
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    Update,
-)
-from telegram.ext import (
-    ConversationHandler,
-    CallbackQueryHandler,
-    CallbackContext,
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (CallbackContext, CallbackQueryHandler,
+                          ConversationHandler)
 
-from bot.models import TimeSlot, Student
-from bot.utils.timeslots_utils import make_timeslots, CALL_TIME_MINUTES
+from bot.models import Student, TimeSlot
+from bot.utils.timeslots_utils import CALL_TIME_MINUTES, make_timeslots
 
 logger = logging.getLogger("student")
 

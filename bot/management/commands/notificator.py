@@ -1,9 +1,10 @@
 import logging
 import os
 
-from bot.models import TeamProject, Student, TimeSlot
-from telegram.utils.request import Request
 from telegram import Bot, ParseMode
+from telegram.utils.request import Request
+
+from bot.models import TeamProject, TimeSlot
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
