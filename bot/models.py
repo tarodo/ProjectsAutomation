@@ -245,3 +245,30 @@ class TeamProject(models.Model):
     class Meta:
         verbose_name = "Проект команды"
         verbose_name_plural = "Проекты команд"
+
+
+class PriorityStudents(models.Model):
+    """Пары студентов, которые должны попасть в одну команду."""
+
+    student_1 = models.ForeignKey(
+        verbose_name="Ученик 1",
+        related_name="pairs_1",
+        to="Student",
+        on_delete=models.CASCADE,
+    )
+    student_2 = models.ForeignKey(
+        verbose_name="Ученик 2",
+        related_name="pairs_2",
+        to="Student",
+        on_delete=models.CASCADE,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.student_1.name} / "
+            f"{self.student_2.name}"
+        )
+
+    class Meta:
+        verbose_name = "Парный Студент"
+        verbose_name_plural = "Парные Студенты"

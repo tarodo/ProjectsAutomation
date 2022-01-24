@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import re_path
 
-from .models import ProductManager, Project, Student, TeamProject, TimeSlot
+from .models import ProductManager, Project, Student, TeamProject, TimeSlot, PriorityStudents
 from .utils.timeslots_utils import cancel_distribution, make_teams
 
 
@@ -98,4 +98,9 @@ class TeamProjectAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
+    pass
+
+
+@admin.register(PriorityStudents)
+class PriorityStudentsAdmin(admin.ModelAdmin):
     pass
