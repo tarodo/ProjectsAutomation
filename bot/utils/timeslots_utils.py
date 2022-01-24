@@ -16,7 +16,7 @@ PROJECTS_END_DATE = "2022-02-07"
 
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
-
+    # TODO: задавать даты проекта через аргументы
     if not TimeSlot.objects.filter(participant__role=Participant.STUDENT).exists():
         return "Нет учеников, сначала необходимо зарегистрировать учеников."
     if not TimeSlot.objects.filter(
@@ -45,21 +45,12 @@ def make_teams():
                 if pm_teams_count == max_teams_of_manager:
                     break
 
-                slots_with_actual_project = TimeSlot.objects.filter(
-                    team_project__isnull=False,
-                    team_project__date_start__gte=datetime.now(),
-                )
-                students_with_actual_projects = Participant.objects.filter(
-                    timeslots__in=slots_with_actual_project,
-                    role=Participant.STUDENT,
-                ).distinct()
-
                 free_students_timeslots = TimeSlot.objects.filter(
                     time_slot=pm_timeslot.time_slot,
                     participant__role=Participant.STUDENT,
                     participant__level=level,
                     team_project=None,
-                ).exclude(participant__in=students_with_actual_projects)
+                ).filter(participant__in=get_unallocated_students_optimized())
 
                 if free_students_timeslots.count() < MAX_TEAM_MEMBERS:
                     continue
@@ -86,9 +77,9 @@ def make_teams():
     return "Распределение успешно"
 
 
-def get_teams(start_date=None):
-    """Возвращает данные по командам у которых дата начала позднее указанной start_date."""
-    # проекты которые еще не стартанули
+def get_teams(start_date=datetime.now()):
+    """Возвращает данные по командам у которых
+    дата начала проекта позднее указанной start_date."""
 
     team_projects = TeamProject.objects.filter(date_start__gte=start_date)
     if not team_projects.exists():
@@ -123,7 +114,8 @@ def get_teams(start_date=None):
 
 
 def cancel_distribution(start_date=datetime.now()):
-    """Отмена распределения, только для непрошедщих проектов."""
+    """Отмена распределения, для проектов у которых дата начала позднее
+    указанной start_date."""
 
     busy_timeslots = TimeSlot.objects.filter(
         team_project__date_start__gte=start_date,
@@ -152,6 +144,23 @@ def get_unallocated_students():
             unallocated_students.append(student)
 
     return unallocated_students
+
+
+def get_unallocated_students_optimized():
+    slots_with_actual_project = TimeSlot.objects.filter(
+        team_project__isnull=False,
+        team_project__date_start__gte=datetime.now(),
+    )
+
+    return (
+        Participant.objects.filter(
+            role=Participant.STUDENT,
+        )
+        .exclude(
+            timeslots__in=slots_with_actual_project,
+        )
+        .distinct()
+    )
 
 
 def make_timeslots(time_start, time_end, tg_id, project=None):
