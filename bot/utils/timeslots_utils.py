@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from itertools import groupby
 from random import choice
 
@@ -192,3 +192,28 @@ def get_teams():
         )
 
     return teams_list
+
+
+def shift_pm_teams(tg_id, minutes_shift, projects_start_after=datetime.now()):
+    """Сдвиг всех таймслотов ПМа со статусом BUSY всперед на minutes_shift.
+    projects_start_after - дата старше которой выбираются проекты команды."""
+
+    time_delta = timedelta(minutes=minutes_shift)
+
+    pm = ProductManager.objects.get(tg_id=tg_id)
+    pm_timeslots = TimeSlot.objects.filter(
+        product_manager=pm,
+        status=TimeSlot.BUSY,
+        team_project__date_start__gte=projects_start_after,
+    )
+
+    for timeslot in pm_timeslots:
+        dt = (
+            datetime.combine(
+                date.today(),
+                timeslot.time_slot,
+            )
+            + time_delta
+        )
+        timeslot.time_slot = dt.time()
+        timeslot.save()
