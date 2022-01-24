@@ -1,36 +1,40 @@
 from datetime import datetime, timedelta
-from itertools import groupby
 from random import choice
 
-from bot.models import ProductManager, Project, Student, TeamProject, TimeSlot
+from bot.models import Participant, Project, TeamProject, TimeSlot
 
 MAX_TEAM_MEMBERS = 3
 CALL_TIME_MINUTES = 30
 STUDENTS_LEVELS = (
-    Student.BEGINNER,
-    Student.BEGINNER_PLUS,
-    Student.JUNIOR,
+    Participant.BEGINNER,
+    Participant.BEGINNER_PLUS,
+    Participant.JUNIOR,
 )
-PROJECTS_START_DATE = "2022-01-24"
-PROJECTS_END_DATE = "2022-02-05"
+PROJECTS_START_DATE = "2022-01-30"
+PROJECTS_END_DATE = "2022-02-07"
 
 
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
 
-    if not Student.objects.exists():
+    if not TimeSlot.objects.filter(participant__role=Participant.STUDENT).exists():
         return "Нет учеников, сначала необходимо зарегистрировать учеников."
-    if not ProductManager.objects.exists():
+    if not TimeSlot.objects.filter(
+        participant__role=Participant.PRODUCT_MANAGER
+    ).exists():
         return "Нет менеджеров, сначала необходимо зарегистрировать менеджеров."
 
-    students_count = Student.objects.count()
-    pm_count = ProductManager.objects.count()
+    students_count = Participant.objects.filter(role=Participant.STUDENT).count()
+    pm_count = Participant.objects.filter(role=Participant.PRODUCT_MANAGER).count()
     max_teams_of_manager = students_count // MAX_TEAM_MEMBERS // pm_count
+    if max_teams_of_manager == 0:
+        max_teams_of_manager = 1
 
-    for pm in ProductManager.objects.all():
+    for pm in Participant.objects.filter(role=Participant.PRODUCT_MANAGER):
         pm_teams_count = 0
         pm_timeslots = TimeSlot.objects.filter(
-            product_manager=pm, student__isnull=True, status=TimeSlot.FREE
+            participant=pm,
+            team_project=None,
         )
 
         for pm_timeslot in pm_timeslots:
@@ -41,18 +45,26 @@ def make_teams():
                 if pm_teams_count == max_teams_of_manager:
                     break
 
-                students_timeslots = TimeSlot.objects.filter(
-                    time_slot=pm_timeslot.time_slot,
-                    product_manager__isnull=True,
-                    student__isnull=False,
-                    student__level=level,
-                    status=TimeSlot.FREE,
-                )  # TODO: add disctinct by student?
+                slots_with_actual_project = TimeSlot.objects.filter(
+                    team_project__isnull=False,
+                    team_project__date_start__gte=datetime.now(),
+                )
+                students_with_actual_projects = Participant.objects.filter(
+                    timeslots__in=slots_with_actual_project,
+                    role=Participant.STUDENT,
+                ).distinct()
 
-                if students_timeslots.count() < MAX_TEAM_MEMBERS:
+                free_students_timeslots = TimeSlot.objects.filter(
+                    time_slot=pm_timeslot.time_slot,
+                    participant__role=Participant.STUDENT,
+                    participant__level=level,
+                    team_project=None,
+                ).exclude(participant__in=students_with_actual_projects)
+
+                if free_students_timeslots.count() < MAX_TEAM_MEMBERS:
                     continue
 
-                team_timeslots = students_timeslots[:3]
+                team_timeslots = free_students_timeslots[:3]
 
                 typical_project = choice(Project.objects.all())
                 team_project = TeamProject.objects.create(
@@ -62,61 +74,97 @@ def make_teams():
                 )
 
                 for slot in team_timeslots:
-                    slot.product_manager = pm
                     slot.team_project = team_project
-                    slot.status = TimeSlot.BUSY
                     slot.save()
-                    for slot in slot.student.timeslots.filter(status=TimeSlot.FREE):
-                        slot.status = TimeSlot.NON_ACTUAL
-                        slot.save()
+
+                pm_timeslot.team_project = team_project
+                pm_timeslot.save()
 
                 pm_teams_count += 1
-                pm_timeslot.status = TimeSlot.NON_ACTUAL
-                pm_timeslot.save()
                 break
 
     return "Распределение успешно"
 
 
-def cancel_distribution():
+def get_teams(start_date=None):
+    """Возвращает данные по командам у которых дата начала позднее указанной start_date."""
+    # проекты которые еще не стартанули
+
+    team_projects = TeamProject.objects.filter(date_start__gte=start_date)
+    if not team_projects.exists():
+        return []
+
+    teams = []
+    for team_project in team_projects:
+        if not team_project.timeslots.all().exists():
+            continue
+
+        pm_timeslot = team_project.timeslots.filter(
+            participant__role=Participant.PRODUCT_MANAGER
+        )
+        if not pm_timeslot.exists():
+            continue
+
+        students_timeslots = team_project.timeslots.filter(
+            participant__role=Participant.STUDENT,
+        )
+        teams.append(
+            {
+                "pm_timeslot": pm_timeslot,
+                "pm": pm_timeslot[0].participant,
+                "students_timeslots": students_timeslots,
+                "students": Participant.objects.filter(
+                    role=Participant.STUDENT, timeslots__in=students_timeslots
+                ),
+            }
+        )
+
+    return teams
+
+
+def cancel_distribution(start_date=datetime.now()):
     """Отмена распределения, только для непрошедщих проектов."""
 
     busy_timeslots = TimeSlot.objects.filter(
-        status=TimeSlot.BUSY,
-        team_project__date_end__gte=datetime.now(),
+        team_project__date_start__gte=start_date,
     )
     if not busy_timeslots.exists():
         return "Не найдено временных слотов!"
 
-    for slot in busy_timeslots:
-        slot.product_manager = None
-        slot.team_project = None
-        slot.status = TimeSlot.FREE
-        slot.save()
-
-    non_actual_timeslots = TimeSlot.objects.filter(
-        status=TimeSlot.NON_ACTUAL,
-    )
-
-    for slot in non_actual_timeslots:
-        slot.status = TimeSlot.FREE
-        slot.save()
+    projects_to_delete = TeamProject.objects.filter(timeslots__in=busy_timeslots)
+    projects_to_delete.delete()
 
     return "Отмена распределения выполнена успешно"
 
 
 def get_unallocated_students():
-    """Выборка нераспределенных по ПМам и группам учеников,
-    т.е. тех, у которых все таймслоты имеют статус 'FREE'."""
+    """Выборка нераспределенных по ПМам и группам учеников."""
 
-    students = Student.objects.all()
+    students = Participant.objects.filter(role=Participant.STUDENT)
     unallocated_students = []
     for student in students:
-        timeslot_status_dict = student.timeslots.all().values("status")
-        if all(item["status"] == TimeSlot.FREE for item in timeslot_status_dict):
+        # исключая прошедшие проекты
+        actual_student_timeslots = student.timeslots.exclude(
+            team_project__date_end__lte=datetime.now()
+        ).values("team_project")
+
+        if all(item["team_project"] is None for item in actual_student_timeslots):
             unallocated_students.append(student)
 
     return unallocated_students
+
+
+def make_timeslots(time_start, time_end, tg_id, project=None):
+    """Создание таймслотов для ученика или менеджера."""
+
+    participant = Participant.objects.get(tg_id=tg_id)
+    time_stamps = _timestamps_by_range(time_start, time_end)
+    for time_stamp in time_stamps:
+        _create_timeslot(
+            time_slot=time_stamp,
+            participant=participant,
+            team_project=project,
+        )
 
 
 def _timestamps_by_range(time_start, time_end):
@@ -130,62 +178,10 @@ def _timestamps_by_range(time_start, time_end):
     return timestamps
 
 
-def _create_timeslot(time_slot=None, student=None, pm=None, team_project=None):
-    """Создает записи таймслота для заданого времени."""
-
+def _create_timeslot(time_slot=None, participant=None, team_project=None):
+    """Создает записи таймслота для заданого времени, проекта и участника."""
     return TimeSlot.objects.get_or_create(
         time_slot=time_slot,
-        student=student,
-        product_manager=pm,
+        participant=participant,
         team_project=team_project,
     )
-
-
-def make_timeslots(time_start, time_end, tg_id, project=None):
-    """Создание таймслотов для ученика или менеджера."""
-
-    try:
-        pm = ProductManager.objects.get(tg_id=tg_id)
-    except ProductManager.DoesNotExist:
-        pm = None
-
-    try:
-        student = Student.objects.get(tg_id=tg_id)
-    except Student.DoesNotExist:
-        student = None
-
-    time_stamps = _timestamps_by_range(time_start, time_end)
-
-    for time_stamp in time_stamps:
-        _create_timeslot(
-            time_slot=time_stamp, pm=pm, student=student, team_project=project
-        )
-
-
-def get_teams():
-    """Возвращает список словарей команд
-    сгруппированных по менеджеру и времени созвона."""
-
-    busy_timeslots = TimeSlot.objects.filter(status=TimeSlot.BUSY).values(
-        "id", "time_slot", "product_manager__id", "student__id"
-    )
-    sort_func = lambda timeslot: (
-        timeslot["product_manager__id"],
-        timeslot["time_slot"],
-    )
-
-    busy_timeslots_sorted = sorted(busy_timeslots, key=sort_func)
-    teams = groupby(busy_timeslots_sorted, key=sort_func)
-    teams_list = []
-
-    for keys, timeslot_values in teams:
-        pm_id, time = keys
-        teams_list.append(
-            {
-                "pm_id": pm_id,
-                "time": time,
-                "time_slot_vals": list(timeslot_values),
-            }
-        )
-
-    return teams_list

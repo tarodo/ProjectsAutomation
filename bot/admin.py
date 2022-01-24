@@ -1,8 +1,8 @@
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.http import HttpResponseRedirect
 from django.urls import re_path
 
-from .models import ProductManager, Project, Student, TeamProject, TimeSlot
+from .models import Participant, Project, TeamProject, TimeSlot
 from .utils.timeslots_utils import cancel_distribution, make_teams
 
 
@@ -10,26 +10,17 @@ class TimeSlotInline(admin.TabularInline):
     model = TimeSlot
 
 
-class StudentInline(admin.TabularInline):
-    model = ProductManager.students.through
-
-
-@admin.register(ProductManager)
-class ProductManageraAdmin(admin.ModelAdmin):
-    inlines = [
-        TimeSlotInline,
-    ]
-
-
-@admin.register(Student)
-class StudentAdmin(admin.ModelAdmin):
+@admin.register(Participant)
+class ParticipantAdmin(admin.ModelAdmin):
     list_display = (
         "name",
+        "role",
         "tg_username",
         "level",
         "is_far_east",
     )
     list_filter = list_display
+
     inlines = [
         TimeSlotInline,
     ]
@@ -37,28 +28,23 @@ class StudentAdmin(admin.ModelAdmin):
 
 @admin.register(TimeSlot)
 class TimeSlotAdmin(admin.ModelAdmin):
-    fields = (
-        "status",
-        "time_slot",
-        "product_manager",
-        "student",
-        "team_project",
-    )
+
     list_display = (
-        "status",
-        "product_manager",
+        "participant",
+        "participant_role",
         "time_slot",
-        "student",
         "team_project",
     )
     list_filter = (
-        "status",
-        "product_manager",
+        "participant",
         "time_slot",
-        "student",
         "team_project",
     )
     change_list_template = "admin/timeslot_change_list.html"
+
+    def participant_role(self, timeslot):
+        roles = dict(Participant.PARTICIPANT_ROLES_CHOICES)
+        return roles[timeslot.participant.role]
 
     def get_urls(self):
         urls = super(TimeSlotAdmin, self).get_urls()
@@ -91,9 +77,7 @@ class TimeSlotAdmin(admin.ModelAdmin):
 
 @admin.register(TeamProject)
 class TeamProjectAdmin(admin.ModelAdmin):
-    inlines = [
-        StudentInline,
-    ]
+    pass
 
 
 @admin.register(Project)
