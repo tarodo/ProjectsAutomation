@@ -1,9 +1,11 @@
+import logging
 from datetime import datetime, timedelta
 from itertools import groupby
 from random import choice
+from typing import List
 
 from bot.management.commands.notificator import notify_everybody, notify_free_students
-from bot.models import ProductManager, Project, Student, TeamProject, TimeSlot
+from bot.models import ProductManager, Project, Student, TeamProject, TimeSlot, PriorityStudents
 
 MAX_TEAM_MEMBERS = 3
 CALL_TIME_MINUTES = 30
@@ -16,9 +18,47 @@ PROJECTS_START_DATE = "2022-01-24"
 PROJECTS_END_DATE = "2022-02-05"
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+def find_priority_student(student: Student) -> List[Student]:
+    my_pairs = []
+    pairs_1 = PriorityStudents.objects.filter(student_1=student).all()
+    my_pairs += [pair.student_2 for pair in pairs_1]
+    pairs_2 = PriorityStudents.objects.filter(student_2=student).all()
+    my_pairs += [pair.student_1 for pair in pairs_2]
+    return my_pairs
+
+
+def choose_slots(slots: List[TimeSlot]) -> List[TimeSlot]:
+    max_slot = []
+    for slot in slots:
+        team_slots = [slot, ]
+        student = slot.student
+        my_team_slots = slots.copy()
+        my_team_slots.remove(slot)
+        my_pairs = find_priority_student(student)
+        for team_slot in my_team_slots:
+            if team_slot.student in my_pairs:
+                team_slots.append(team_slot)
+            if len(team_slots) == MAX_TEAM_MEMBERS:
+                return team_slots
+            if len(team_slots) > len(max_slot):
+                max_slot = team_slots.copy()
+    my_team_slots = slots.copy()
+    for slot in max_slot:
+        my_team_slots.remove(slot)
+    for i in range(MAX_TEAM_MEMBERS - len(max_slot)):
+        max_slot.append(choice(my_team_slots))
+    return max_slot
+
+
 def make_teams():
     """Распределение учеников по командам и менеджерам."""
-
     if not Student.objects.exists():
         return "Нет учеников, сначала необходимо зарегистрировать учеников."
     if not ProductManager.objects.exists():
@@ -53,7 +93,8 @@ def make_teams():
                 if students_timeslots.count() < MAX_TEAM_MEMBERS:
                     continue
 
-                team_timeslots = students_timeslots[:3]
+                team_timeslots = choose_slots(list(students_timeslots))
+                # team_timeslots = students_timeslots[:3]
 
                 typical_project = choice(Project.objects.all())
                 team_project = TeamProject.objects.create(
