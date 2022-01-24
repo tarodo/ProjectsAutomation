@@ -53,7 +53,10 @@ def choose_slots(slots: List[TimeSlot]) -> List[TimeSlot]:
     for slot in max_slot:
         my_team_slots.remove(slot)
     for i in range(MAX_TEAM_MEMBERS - len(max_slot)):
-        max_slot.append(choice(my_team_slots))
+        logger.info(i)
+        new_choice = choice(my_team_slots)
+        max_slot.append(new_choice)
+        my_team_slots.remove(new_choice)
     return max_slot
 
 
