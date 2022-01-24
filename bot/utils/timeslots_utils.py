@@ -197,6 +197,8 @@ def get_teams():
 def shift_pm_teams(tg_id, minutes_shift, projects_start_after=datetime.now()):
     """Сдвиг всех таймслотов ПМа со статусом BUSY всперед на minutes_shift.
     projects_start_after - дата старше которой выбираются проекты команды."""
+    if minutes_shift > 60:
+        raise AssertionError("Сдвиг не должен превышать 60 минут!")
 
     time_delta = timedelta(minutes=minutes_shift)
 
