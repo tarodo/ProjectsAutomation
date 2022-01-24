@@ -3,14 +3,15 @@ import os
 from enum import Enum, auto
 
 from django.core.management.base import BaseCommand
-from telegram import Bot, ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup, ParseMode
+from telegram import (Bot, InlineKeyboardButton, InlineKeyboardMarkup,
+                      ParseMode, ReplyKeyboardRemove, Update)
 from telegram.ext import (CallbackContext, CommandHandler, ConversationHandler,
                           Filters, MessageHandler, Updater)
 from telegram.utils.request import Request
 
-from bot.models import ProductManager, Student, TimeSlot
-
 import bot.management.commands._student_conversation as sc
+import bot.management.commands._pm_conversation as pc
+from bot.models import ProductManager, Student, TimeSlot
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
@@ -77,11 +78,17 @@ def start(update: Update, context: CallbackContext):
 
 
 def send_first_step_pm(update: Update, context: CallbackContext) -> States:
-    update.effective_user.send_message(
-        text="Добро пожаловать PM.",
-        reply_markup=ReplyKeyboardRemove()
-    )
-    return ConversationHandler.END
+    buttons = [
+        [
+            InlineKeyboardButton(text="Посмотреть периоды работы.",
+                                 callback_data="show_period_pm"),
+        ]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    update.message.reply_text(
+        text="Добро пожаловать о великий ПМ! )))", reply_markup=keyboard)
+
+    return States.START_PM
 
 
 def student_project(user_id):
@@ -118,11 +125,13 @@ def send_first_step_student(update: Update, context: CallbackContext) -> States:
 
     buttons = [
         [
-            InlineKeyboardButton(text='Выбрать время', callback_data=sc.Consts.SELECT_TIME.value),
+            InlineKeyboardButton(text='Выбрать время',
+                                 callback_data=sc.Consts.SELECT_TIME.value),
         ]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
-    update.message.reply_text(text="Добро пожаловать студент! Пора приступать к проекту!", reply_markup=keyboard)
+    update.message.reply_text(
+        text="Добро пожаловать студент! Пора приступать к проекту!", reply_markup=keyboard)
 
     return States.START_STUDENT
 
@@ -154,8 +163,8 @@ class Command(BaseCommand):
             ],
             states={
                 States.START_PM: [
-                    MessageHandler(Filters.text & ~
-                                   Filters.command, send_first_step_student)],
+                    pc.pm_conv
+                ],
                 States.START_STUDENT: [
                     sc.student_conv
                 ],
