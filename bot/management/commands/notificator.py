@@ -64,7 +64,7 @@ def notify_everybody():
                 )
         for student in team:
             if student.tg_id:
-                my_team = team
+                my_team = team.copy()
                 my_team.remove(student)
                 user_id = student.tg_id
                 team_txt = "\n".join([f"{teammate}" for teammate in my_team])
